@@ -61,3 +61,20 @@ def detect_motion_webcam():
 
     previous_frame = current_frame
     return motion_detected
+
+
+async def get_sensor_data():
+    try:
+        dht_data = read_dht22_data()
+        gpio_data = read_gpio_data()
+        motion_webcam = detect_motion_webcam()
+
+        return {
+            **dht_data,
+            **gpio_data,
+            "motion_detected": motion_webcam
+        }
+    except Exception as error:
+        sensor.exit()
+        cap.release()
+        raise error

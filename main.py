@@ -72,3 +72,31 @@ async def login(data: dict):
 @app.get("/", response_class=HTMLResponse)
 async def get_home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.websocket("/ws")
+async def websocket_sensor_endpoint(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=1008, reason="Missing authentication token")
+        return
+
+    try:
+        user = verify_token(token)
+    except HTTPException as e:
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
+
+    await websocket.accept()
+    try:
+        while True:
+            data = await get_sensor_data()
+            if data:
+                await websocket.send_json(data)
+            await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        print("WebSocket disconnected from /ws")
+    except Exception as e:
+        print(f"Sensor WebSocket connection error: {e}")
+    finally:
+        await websocket.close()

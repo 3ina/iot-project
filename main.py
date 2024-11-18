@@ -28,6 +28,9 @@ app.mount("/static", StaticFiles(directory=IMAGE_SAVE_DIR), name="static")
 
 CREDENTIALS_FILE = "credentials.json"
 
+class TokenData(BaseModel):
+    username: str
+
 def load_credentials(file_path):
     try:
         with open(file_path, "r") as file:

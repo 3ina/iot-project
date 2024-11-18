@@ -5,7 +5,6 @@ import cv2
 import time
 
 sensor = adafruit_dht.DHT22(board.D4)
-motion_detection_gpio = Button(14)
 mq9_sensor = Button(17)
 
 cap = cv2.VideoCapture(0)
@@ -22,3 +21,11 @@ def read_dht22_data():
     except RuntimeError as error:
         print(f"Error reading DHT22 sensor data: {error}")
         return {}
+
+
+def read_gpio_data():
+    gas_detected = mq9_sensor.is_pressed
+
+    return {
+        "gas_detected": gas_detected
+    }

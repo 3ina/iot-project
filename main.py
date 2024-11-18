@@ -100,3 +100,41 @@ async def websocket_sensor_endpoint(websocket: WebSocket):
         print(f"Sensor WebSocket connection error: {e}")
     finally:
         await websocket.close()
+
+
+@app.websocket("/ws/status")
+async def websocket_status_endpoint(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=1008, reason="Missing authentication token")
+        return
+
+    try:
+        user = verify_token(token)
+    except HTTPException as e:
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
+
+    await websocket.accept()
+    try:
+        while True:
+            cpu_usage = psutil.cpu_percent(interval=1)
+            memory_info = psutil.virtual_memory()
+            uptime = time.time() - psutil.boot_time()
+            cpu_temp = get_cpu_temperature()
+
+            status_data = {
+                "cpu_usage": cpu_usage,
+                "memory_percent": memory_info.percent,
+                "uptime_seconds": uptime,
+                "cpu_temp_c": cpu_temp,
+            }
+
+            await websocket.send_json(status_data)
+            await asyncio.sleep(5)  # Adjust frequency as needed
+    except WebSocketDisconnect:
+        print("WebSocket disconnected from /ws/status")
+    except Exception as e:
+        print(f"Status WebSocket connection error: {e}")
+    finally:
+        await websocket.close()

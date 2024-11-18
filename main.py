@@ -55,3 +55,6 @@ def verify_token(token: str):
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    return verify_token(token)

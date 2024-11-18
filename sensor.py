@@ -39,3 +39,25 @@ def capture_image(source):
         print(f"Image saved: {filename}")
     else:
         print("Failed to capture image.")
+
+
+def detect_motion_webcam():
+    global previous_frame
+    ret, current_frame = cap.read()
+    if not ret:
+        return False
+
+    motion_detected = False
+    if previous_frame is not None:
+        gray_current = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+        gray_previous = cv2.cvtColor(previous_frame, cv2.COLOR_BGR2GRAY)
+        diff = cv2.absdiff(gray_previous, gray_current)
+        _, thresh = cv2.threshold(diff, 25, 255, cv2.THRESH_BINARY)
+
+        motion_detected = cv2.countNonZero(thresh) > 5000
+
+    if motion_detected:
+        capture_image("gpio_motion")
+
+    previous_frame = current_frame
+    return motion_detected

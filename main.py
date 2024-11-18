@@ -39,6 +39,12 @@ def load_credentials(file_path):
         print(f"Error loading credentials: {e}")
         return None
 
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    to_encode["exp"] = time.time() + TOKEN_EXPIRATION
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
 def verify_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -48,3 +54,4 @@ def verify_token(token: str):
         return TokenData(username=username)
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+

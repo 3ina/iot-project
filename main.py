@@ -68,3 +68,7 @@ async def login(data: dict):
         token = create_access_token({"username": data["username"]})
         return JSONResponse(content={"access_token": token})
     raise HTTPException(status_code=401, detail="Incorrect username or password")
+
+@app.get("/", response_class=HTMLResponse)
+async def get_home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 font-sans text-center">
+
+    <div id="login-form" class="mt-10">
+        <h2 class="text-2xl font-bold mb-4">Login</h2>
+        <form onsubmit="login(event)">
+            <input type="text" id="username" placeholder="Username" required class="border rounded px-3 py-2 mb-2">
+            <input type="password" id="password" placeholder="Password" required class="border rounded px-3 py-2 mb-2">
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Login</button>
+        </form>
+        <p id="error-message" class="text-red-500"></p>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <h1 class="text-3xl font-bold text-gray-800 text-center mt-4 mb-8">
+            Persian Gulf University
+        </h1>
+        <h2 class="text-3xl font-bold text-gray-800 my-8">Real-Time Sensor Dashboard</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            <div class="sensor-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h2 class="text-xl font-semibold text-gray-700">Temperature (C)</h2>
+                <p class="sensor-value text-4xl font-bold text-blue-500" id="temp-c">--</p>
+            </div>
+
+            <div class="sensor-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h2 class="text-xl font-semibold text-gray-700">Temperature (F)</h2>
+                <p class="sensor-value text-4xl font-bold text-blue-500" id="temp-f">--</p>
+            </div>
+            <div class="sensor-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h2 class="text-xl font-semibold text-gray-700">Humidity (%)</h2>
+                <p class="sensor-value text-4xl font-bold text-green-500" id="humidity-value">--</p>
+            </div>
+
+            <div class="sensor-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h2 class="text-xl font-semibold text-gray-700">Motion Detected</h2>
+                <p class="sensor-value text-4xl font-bold text-yellow-500" id="motion-value">--</p>
+            </div>
+            <div class="sensor-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h2 class="text-xl font-semibold text-gray-700">Gas Detected</h2>
+                <p class="sensor-value text-4xl font-bold text-red-500" id="gas-value">--</p>
+            </div>
+        </div>
+
+        <h2 class="text-2xl font-semibold text-gray-800 mt-10">Raspberry Pi Status</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto my-6">
+            <div class="status-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h3 class="text-lg font-semibold text-gray-700">CPU Usage (%)</h3>
+                <p class="status-value text-3xl font-bold text-purple-500" id="cpu-usage">--</p>
+            </div>
+            <div class="status-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h3 class="text-lg font-semibold text-gray-700">Memory Usage (%)</h3>
+                <p class="status-value text-3xl font-bold text-pink-500" id="memory-usage">--</p>
+            </div>
+
+            <div class="status-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h3 class="text-lg font-semibold text-gray-700">Uptime (seconds)</h3>
+                <p class="status-value text-3xl font-bold text-teal-500" id="uptime">--</p>
+            </div>
+
+            <div class="status-box p-6 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <h3 class="text-lg font-semibold text-gray-700">CPU Temperature (�C)</h3>
+                <p class="status-value text-3xl font-bold text-orange-500" id="cpu-temp">--</p>
+            </div>
+        </div>
+
+
+    </div>
+
+    <script>
+        let accessToken = "";
+
+        async function login(event) {
+            event.preventDefault();
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const response = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                accessToken = data.access_token;
+                document.getElementById("login-form").classList.add("hidden");
+                document.getElementById("dashboard").classList.remove("hidden");
+                connectWebSockets();
+            } else {
+                document.getElementById("error-message").textContent = data.detail;
+            }
+        }
+
+        function connectWebSockets() {
+            const sensorWs = new WebSocket(`ws://${window.location.hostname}:8000/ws?token=${accessToken}`);
+            const statusWs = new WebSocket(`ws://${window.location.hostname}:8000/ws/status?token=${accessToken}`);
+
+            sensorWs.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                document.getElementById("temp-c").textContent = data.temperature_c?.toFixed(2) || "--";
+                document.getElementById("temp-f").textContent = data.temperature_f?.toFixed(2) || "--";
+                document.getElementById("humidity-value").textContent = data.humidity?.toFixed(2) || "--";
+                document.getElementById("motion-value").textContent = data.motion_detected ? "Yes" : "No";
+                document.getElementById("gas-value").textContent = data.gas_detected ? "Yes" : "No";
+            };
+
+            statusWs.onmessage = function(event) {
+                const statusData = JSON.parse(event.data);
+                document.getElementById("cpu-usage").textContent = statusData.cpu_usage.toFixed(1) || "--";
+                document.getElementById("memory-usage").textContent = statusData.memory_percent.toFixed(1) || "--";
+                document.getElementById("uptime").textContent = statusData.uptime_seconds.toFixed(0) || "--";
+                document.getElementById("cpu-temp").textContent = statusData.cpu_temp_c ? statusData.cpu_temp_c.toFixed(1) : "--";
+            };
+
+            sensorWs.onclose = statusWs.onclose = function() {
+                alert("WebSocket connection closed");
+            };
+        }
+    </script>
+</body>
+</html>

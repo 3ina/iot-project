@@ -38,3 +38,13 @@ def load_credentials(file_path):
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"Error loading credentials: {e}")
         return None
+
+def verify_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("username")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return TokenData(username=username)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid credentials")

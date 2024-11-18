@@ -58,3 +58,13 @@ def verify_token(token: str):
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     return verify_token(token)
+
+@app.post("/login")
+async def login(data: dict):
+    user = load_credentials(CREDENTIALS_FILE)
+    if not user:
+        raise Exception("Failed to load user credentials. Ensure the file exists and is valid.")
+    if data.get("username") == user["username"] and data.get("password") == user["password"]:
+        token = create_access_token({"username": data["username"]})
+        return JSONResponse(content={"access_token": token})
+    raise HTTPException(status_code=401, detail="Incorrect username or password")

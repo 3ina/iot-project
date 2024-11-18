@@ -29,3 +29,13 @@ def read_gpio_data():
     return {
         "gas_detected": gas_detected
     }
+
+def capture_image(source):
+    timestamp = int(time.time())
+    filename = f"{IMAGE_SAVE_DIR}/{source}_motion_{timestamp}.jpg"
+    ret, frame = cap.read()
+    if ret:
+        cv2.imwrite(filename, frame)
+        print(f"Image saved: {filename}")
+    else:
+        print("Failed to capture image.")

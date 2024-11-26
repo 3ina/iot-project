@@ -12,6 +12,7 @@ previous_frame = None
 
 IMAGE_SAVE_DIR = "captured_images"
 
+
 def read_dht22_data():
     try:
         temperature_c = sensor.temperature
@@ -29,6 +30,7 @@ def read_gpio_data():
     return {
         "gas_detected": gas_detected
     }
+
 
 def capture_image(source):
     timestamp = int(time.time())

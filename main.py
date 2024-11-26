@@ -1,9 +1,11 @@
 import time
 import json
-import os
-from .sensor import IMAGE_SAVE_DIR
+import cv2
+import base64
+from sensor import IMAGE_SAVE_DIR,cap
 from sensor import get_cpu_temperature, get_sensor_data
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends, HTTPException
+from fastapi.websockets import WebSocketState
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.security import OAuth2PasswordBearer
@@ -17,7 +19,6 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 
-
 SECRET_KEY = "your_secret_key"
 ALGORITHM = "HS256"
 TOKEN_EXPIRATION = 3600
@@ -26,10 +27,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 app.mount("/static", StaticFiles(directory=IMAGE_SAVE_DIR), name="static")
 
-CREDENTIALS_FILE = "credentials.json"
 
-class TokenData(BaseModel):
-    username: str
+CREDENTIALS_FILE = "credentials.json"
 
 def load_credentials(file_path):
     try:
@@ -39,6 +38,9 @@ def load_credentials(file_path):
         print(f"Error loading credentials: {e}")
         return None
 
+
+class TokenData(BaseModel):
+    username: str
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -55,9 +57,9 @@ def verify_token(token: str):
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     return verify_token(token)
+
 
 @app.post("/login")
 async def login(data: dict):
@@ -69,10 +71,12 @@ async def login(data: dict):
         return JSONResponse(content={"access_token": token})
     raise HTTPException(status_code=401, detail="Incorrect username or password")
 
+
+
+
 @app.get("/", response_class=HTMLResponse)
 async def get_home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
-
 
 @app.websocket("/ws")
 async def websocket_sensor_endpoint(websocket: WebSocket):
@@ -100,7 +104,6 @@ async def websocket_sensor_endpoint(websocket: WebSocket):
         print(f"Sensor WebSocket connection error: {e}")
     finally:
         await websocket.close()
-
 
 @app.websocket("/ws/status")
 async def websocket_status_endpoint(websocket: WebSocket):
@@ -131,10 +134,46 @@ async def websocket_status_endpoint(websocket: WebSocket):
             }
 
             await websocket.send_json(status_data)
-            await asyncio.sleep(5)  # Adjust frequency as needed
+            await asyncio.sleep(5)
     except WebSocketDisconnect:
         print("WebSocket disconnected from /ws/status")
     except Exception as e:
         print(f"Status WebSocket connection error: {e}")
     finally:
         await websocket.close()
+
+
+@app.websocket("/ws/camera")
+async def websocket_camera_endpoint(websocket: WebSocket):
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=1008, reason="Missing authentication token")
+        return
+
+    try:
+        user = verify_token(token)
+    except HTTPException as e:
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
+
+    await websocket.accept()
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                await websocket.send_json({"error": "Camera read failed"})
+                continue
+
+            _, buffer = cv2.imencode(".jpg", frame)
+            jpg_as_text = base64.b64encode(buffer).decode("utf-8")
+
+            await websocket.send_json({"frame": jpg_as_text})
+            await asyncio.sleep(0.05)
+    except WebSocketDisconnect:
+        print("WebSocket disconnected from /ws/camera")
+    except Exception as e:
+        print(f"Camera WebSocket connection error: {e}")
+    finally:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
